@@ -1,247 +1,277 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
-import * as Tone from 'tone';
 
 // Components
+import PowerSwitch from '../components/PowerSwitch.vue';
 import TunerDial from '../components/TunerDial.vue';
 import SignalMeter from '../components/SignalMeter.vue';
 import TuningLED from '../components/TuningLED.vue';
 
-// Logic & Data
+// Logic
 import { Broadcaster } from '../logic/broadcaster';
-import { startRadioTransport, startAudioContext, updateNoiseFloor } from '../logic/audioPlayback';
+import { startRadioTransport, startAudioContext, stopRadio, updateNoiseFloor } from '../logic/audioPlayback';
 import latentJson from '../data/chords_bach_all.json';
 
 // --- STATE ---
-const tunerValue = ref(0);
-const isEngineStarted = ref(false);
-const activeChordId = ref('---');
+const isPoweredOn = ref(false);
+const tunerValue = ref(0.2); // Initial "station" position
 
 // --- INITIALIZATION ---
 onMounted(() => {
-    // Initialize the navigation engine with the Bach chord dictionary
     Broadcaster.init(latentJson.chords);
 });
 
-async function handlePowerOn() {
-    await startAudioContext();
-    startRadioTransport();
-    isEngineStarted.value = true;
+// --- POWER LOGIC ---
+watch(isPoweredOn, async (on) => {
+    if (on) {
+        await startAudioContext();
+        startRadioTransport();
+        Broadcaster.updateTuning(tunerValue.value);
+    } else {
+        stopRadio();
+    }
+});
 
-    // Trigger initial chord calculation
-    Broadcaster.updateTuning(tunerValue.value);
-}
-
-// --- WATCHERS ---
-watch(tunerValue, (newVal) => {
-    if (!isEngineStarted.value) return;
-
-    // 1. Update the Navigation Logic (k-NN / AD)
-    Broadcaster.updateTuning(newVal);
-
-    // 2. Update the Audio Noise/Crackle based on signal strength
-    updateNoiseFloor(newVal);
-
-    // 3. Update the UI Readout
-    if (Broadcaster.currentChord) {
-        activeChordId.value = Broadcaster.currentChord.id;
+// --- TUNING LOGIC ---
+watch(tunerValue, (val) => {
+    if (isPoweredOn.value) {
+        Broadcaster.updateTuning(val);
+        updateNoiseFloor(val);
     }
 });
 </script>
 
 <template>
-    <div class="radio-installation-wrapper">
-        <div class="faceplate">
+    <div class="installation-container">
+        <div class="radio-console">
 
-            <div class="header-section">
-                <div class="brand-badge">
-                    <h1>BROADCAST <span class="highlight">JSB</span></h1>
-                    <p class="subtitle">LATENT CHORALE RECEIVER • MODEL 1723</p>
-                </div>
-                <SignalMeter :tuner-value="tunerValue" :is-scanning="Broadcaster.isScanning" />
+            <div class="engraving">
+                <div class="logo">𝔅𝔯𝔬𝔞𝔡𝔠𝔞𝔰𝔱 𝔍𝔖𝔅</div>
+                <div class="serial">SER. NO. 1723-LATENT</div>
             </div>
 
-            <div class="display-panel">
-                <div class="tuning-indicator">
-                    <TuningLED :tuner-value="tunerValue" />
-                </div>
+            <div class="inner-panel">
 
-                <div class="frequency-readout">
-                    <div class="lcd-screen">
-                        <span class="mhz">{{ (88 + tunerValue * 20).toFixed(1) }}</span>
-                        <span class="unit">MHz</span>
+                <div class="display-row">
+                    <SignalMeter :active="isPoweredOn" :tuner-value="tunerValue"
+                        :is-scanning="Broadcaster.isScanning" />
+
+                    <div class="frequency-window">
+                        <div class="glass-overlay"></div>
+                        <div class="frequency-needle" :style="{ left: `${tunerValue * 100}%` }"></div>
+                        <div class="frequency-numbers">
+                            <span>88</span><span>92</span><span>96</span><span>100</span><span>104</span><span>108</span>
+                        </div>
                     </div>
-                    <div class="chord-id-display">
-                        TRACKING ID: {{ activeChordId }}
+
+                    <TuningLED :active="isPoweredOn" :tuner-value="tunerValue" />
+                </div>
+
+                <div class="speaker-grill">
+                    <div class="mesh"></div>
+                    <div class="status-readout" v-if="isPoweredOn">
+                        RECEIVING: {{ Broadcaster.currentChord?.id || 'SEARCHING...' }}
                     </div>
                 </div>
 
-                <div class="status-badge">
-                    <div :class="['dot', { 'dot-active': isEngineStarted }]"></div>
-                    <span>{{ isEngineStarted ? 'LIVE' : 'OFF AIR' }}</span>
-                </div>
-            </div>
+                <div class="control-row">
+                    <PowerSwitch v-model="isPoweredOn" />
 
-            <div class="control-grid">
-                <div class="dial-wrapper">
-                    <TunerDial v-model="tunerValue" />
-                </div>
+                    <div class="dial-section">
+                        <TunerDial v-model="tunerValue" />
+                    </div>
 
-                <div class="power-section">
-                    <button v-if="!isEngineStarted" @click="handlePowerOn" class="power-btn">
-                        INITIALIZE VACUUM TUBES
-                    </button>
-                    <div v-else class="playback-hint">
-                        <p>ROTATE DIAL TO NAVIGATE THE MANIFOLD</p>
-                        <div class="knob-shadow"></div>
+                    <div class="calibration-seal">
+                        <div class="seal-inner">CERTIFIED BACH</div>
                     </div>
                 </div>
             </div>
 
-            <footer class="faceplate-footer">
-                <span>TONAL LATTICE DECODER v4.0</span>
-                <span>LEIPZIG, GERMANY</span>
-            </footer>
+            <div class="chassis-screws">
+                <div class="screw top-left"></div>
+                <div class="screw top-right"></div>
+                <div class="screw bottom-left"></div>
+                <div class="screw bottom-right"></div>
+            </div>
         </div>
+
+        <div class="ambient-shadow"></div>
     </div>
 </template>
 
 <style scoped>
-.radio-installation-wrapper {
+.installation-container {
     min-height: 100vh;
-    background-color: #0a0a0a;
+    background: radial-gradient(circle, #1a1a1a 0%, #050505 100%);
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    font-family: 'Courier New', Courier, monospace;
+    perspective: 1000px;
 }
 
-.faceplate {
-    width: 500px;
-    background: #2a2a2a;
-    border: 10px solid #3d3d3d;
-    border-radius: 12px;
+/* The Wooden Cabinet */
+.radio-console {
+    width: 580px;
+    background: #3d2b1f;
+    /* Walnut-ish color */
+    border: 12px solid #2a1d15;
+    border-radius: 20px 20px 5px 5px;
+    padding: 40px;
+    box-shadow:
+        0 30px 60px rgba(0, 0, 0, 0.9),
+        inset 0 2px 10px rgba(255, 255, 255, 0.1);
+    position: relative;
+}
+
+/* Metal Inner Plate */
+.inner-panel {
+    background: #1a1a1a;
+    border: 4px solid #4a3c31;
+    border-radius: 8px;
     padding: 30px;
-    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5), 0 20px 40px rgba(0, 0, 0, 0.8);
-    color: #dcdcdc;
+    box-shadow: inset 0 0 20px #000;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
 }
 
-/* Header */
-.header-section {
+/* Frequency Display Window */
+.frequency-window {
+    width: 180px;
+    height: 60px;
+    background: #221a10;
+    border: 2px solid #555;
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(255, 255, 255, 0.1), transparent);
+    z-index: 2;
+}
+
+.frequency-needle {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: #ff4500;
+    box-shadow: 0 0 5px #ff4500;
+    transition: left 0.2s ease-out;
+    z-index: 3;
+}
+
+.frequency-numbers {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 30px;
-    border-bottom: 2px solid #3d3d3d;
-    padding-bottom: 15px;
-}
-
-.brand-badge h1 {
-    font-size: 1.2rem;
-    margin: 0;
-    letter-spacing: 2px;
-}
-
-.highlight {
-    color: #42b983;
-}
-
-.subtitle {
-    font-size: 0.6rem;
-    margin: 5px 0 0 0;
-    opacity: 0.6;
-}
-
-/* Display LCD */
-.display-panel {
-    background: #111;
-    border: 3px inset #333;
-    padding: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 40px;
-}
-
-.lcd-screen {
-    color: #42b983;
-    text-shadow: 0 0 10px rgba(66, 185, 131, 0.6);
-    text-align: center;
-}
-
-.mhz {
-    font-size: 3rem;
-    font-weight: bold;
-}
-
-.unit {
-    font-size: 1rem;
-    margin-left: 5px;
+    padding: 35px 10px 5px;
+    color: #c4a484;
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
     opacity: 0.8;
 }
 
-.chord-id-display {
-    font-size: 0.7rem;
-    margin-top: 10px;
-    color: #42b983;
-    opacity: 0.5;
-}
-
-/* Controls */
-.control-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    align-items: center;
-}
-
-.power-btn {
-    background: #b33939;
-    border: 4px solid #822727;
-    color: white;
-    padding: 15px;
-    cursor: pointer;
-    font-weight: bold;
+/* Speaker Grill Aesthetic */
+.speaker-grill {
+    height: 40px;
+    background: repeating-linear-gradient(90deg, #111, #111 2px, #222 4px);
     border-radius: 4px;
-    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.power-btn:hover {
-    background: #ff5252;
+.status-readout {
+    color: #42b983;
+    font-family: monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    text-shadow: 0 0 5px #42b983;
 }
 
-.playback-hint p {
-    font-size: 0.6rem;
+/* Branding */
+.engraving {
     text-align: center;
-    opacity: 0.5;
+    margin-bottom: 25px;
+    color: #c4a484;
+    opacity: 0.4;
+    font-family: serif;
 }
 
-/* Footer */
-.faceplate-footer {
-    margin-top: 40px;
+.logo {
+    font-size: 1.8rem;
+    letter-spacing: 4px;
+}
+
+.serial {
+    font-size: 0.6rem;
+    margin-top: 5px;
+}
+
+/* Control Layout */
+.display-row,
+.control-row {
     display: flex;
     justify-content: space-between;
-    font-size: 0.5rem;
-    opacity: 0.4;
-    letter-spacing: 1px;
+    align-items: center;
 }
 
-.dot {
+.calibration-seal {
+    width: 60px;
+    height: 60px;
+    border: 2px dashed #4a3c31;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+}
+
+.seal-inner {
+    font-size: 0.4rem;
+    color: #4a3c31;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Decorative Screws */
+.screw {
     width: 8px;
     height: 8px;
-    background: #333;
+    background: #555;
     border-radius: 50%;
-    margin-bottom: 5px;
+    position: absolute;
+    box-shadow: inset 1px 1px 2px #000;
 }
 
-.dot-active {
-    background: #ff5252;
-    box-shadow: 0 0 8px #ff5252;
+.top-left {
+    top: 15px;
+    left: 15px;
 }
 
-.status-badge {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-size: 0.6rem;
+.top-right {
+    top: 15px;
+    right: 15px;
+}
+
+.bottom-left {
+    bottom: 15px;
+    left: 15px;
+}
+
+.bottom-right {
+    bottom: 15px;
+    right: 15px;
+}
+
+.ambient-shadow {
+    width: 600px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    filter: blur(15px);
+    margin-top: -10px;
 }
 </style>

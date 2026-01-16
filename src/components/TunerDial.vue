@@ -1,95 +1,76 @@
 <script setup>
-import { ref, watch } from 'vue';
-
-const props = defineProps({
-  modelValue: { type: Number, default: 0.5 } // 0.0 to 1.0
-});
+import { ref } from 'vue';
+const props = defineProps(['modelValue']);
 const emit = defineEmits(['update:modelValue']);
 
-const isDragging = ref(false);
 const startY = ref(0);
-const startValue = ref(0);
+const startVal = ref(0);
 
-function startDrag(e) {
-  isDragging.value = true;
+function initDrag(e) {
   startY.value = e.clientY;
-  startValue.value = props.modelValue;
-  window.addEventListener('mousemove', onDrag);
-  window.addEventListener('mouseup', stopDrag);
+  startVal.value = props.modelValue;
+  window.addEventListener('mousemove', doDrag);
+  window.addEventListener('mouseup', endDrag);
 }
 
-function onDrag(e) {
-  if (!isDragging.value) return;
-  const delta = (startY.value - e.clientY) / 200; // Sensitivity
-  const newValue = Math.min(1, Math.max(0, startValue.value + delta));
-  emit('update:modelValue', newValue);
+function doDrag(e) {
+  const delta = (startY.value - e.clientY) / 250;
+  const next = Math.min(1, Math.max(0, startVal.value + delta));
+  emit('update:modelValue', next);
 }
 
-function stopDrag() {
-  isDragging.value = false;
-  window.removeEventListener('mousemove', onDrag);
-  window.removeEventListener('mouseup', stopDrag);
+function endDrag() {
+  window.removeEventListener('mousemove', doDrag);
+  window.removeEventListener('mouseup', endDrag);
 }
 </script>
 
 <template>
-  <div class="tuner-container">
-    <div 
-      class="knob" 
-      :style="{ transform: `rotate(${(modelValue * 270) - 135}deg)` }"
-      @mousedown="startDrag"
-    >
-      <div class="indicator"></div>
+  <div class="dial-container">
+    <div class="knob" @mousedown="initDrag" :style="{ transform: `rotate(${(modelValue * 270) - 135}deg)` }">
+      <div class="marker"></div>
     </div>
-    <div class="frequency-display">
-      <span class="unit">LATENT MHZ</span>
-      <span class="value">{{ (88 + (modelValue * 20)).toFixed(1) }}</span>
+    <div class="dial-labels">
+      <span>ORIGINAL</span>
+      <span>DRIFT</span>
     </div>
   </div>
 </template>
 
 <style scoped>
-.tuner-container {
+.dial-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: #222;
-  padding: 20px;
-  border-radius: 50%;
-  width: 180px;
-  height: 180px;
-  border: 4px solid #444;
+  gap: 15px;
 }
 
 .knob {
-  width: 100px;
-  height: 100px;
-  background: linear-gradient(145deg, #333, #111);
+  width: 80px;
+  height: 80px;
+  background: radial-gradient(circle, #333, #111);
+  border: 4px solid #222;
   border-radius: 50%;
   position: relative;
-  cursor: grab;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+  cursor: ns-resize;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
 }
 
-.knob:active { cursor: grabbing; }
-
-.indicator {
+.marker {
   position: absolute;
-  top: 10px;
+  top: 8px;
   left: 50%;
   width: 4px;
-  height: 15px;
+  height: 12px;
   background: #42b983;
   transform: translateX(-50%);
 }
 
-.frequency-display {
-  margin-top: 15px;
-  color: #42b983;
-  font-family: 'Courier New', Courier, monospace;
-  text-align: center;
+.dial-labels {
+  width: 120px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.5rem;
+  color: #555;
 }
-
-.value { font-size: 1.5rem; display: block; font-weight: bold; }
-.unit { font-size: 0.6rem; opacity: 0.7; }
 </style>
