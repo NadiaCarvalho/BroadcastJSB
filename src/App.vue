@@ -15,7 +15,6 @@ setChordDict(chordDict);
 
 <template>
   <div id="app" class="app-container">
-    <h1>BroadcastJSB</h1>
     <Tuner></Tuner>
   </div>
 </template>
