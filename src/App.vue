@@ -1,6 +1,22 @@
 <script setup>
 import { ref, watch, isRef, computed } from 'vue';
 
+// --- IMPORTS ---
+
+import { substitutePhrase, setChordDict, getChordById } from './../logic/latentStrategies.js';
+import { playPhrase, stopPlayback, startAudioContext } from './../logic/audioPlayback.js';
+
+// --- DATA & DICTIONARY SETUP ---
+import latentJson from './../data/chords_bach_all.json';
+const chordDict = latentJson.chords;
+setChordDict(chordDict);
+
+import demoPhrases from '../data/phrases.json';
+
+// Strategy controls state
+const strategy = ref('knn');
+const k = ref(5);
+
 </script>
 
 <template>
