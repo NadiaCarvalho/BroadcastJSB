@@ -1,73 +1,92 @@
 import * as Tone from 'tone';
 import { Broadcaster } from './Broadcaster';
 
-// --- SYNTH SETUP (Pipe Organ / Flute Style) ---
-const synth = new Tone.PolySynth(Tone.Synth, {
-  oscillator: { type: "square" },
-  envelope: { attack: 0.1, decay: 0.2, sustain: 1, release: 0.6 }
-}).toDestination();
+// --- 1. THE MASTERING CHAIN ---
+// Limiter: The absolute ceiling (prevents digital clipping)
+const limiter = new Tone.Limiter(-1).toDestination();
 
-const lowPass = new Tone.Filter(1500, "lowpass").toDestination();
-const radioFilter = new Tone.Filter(1200, "bandpass").toDestination();
-const reverb = new Tone.Reverb({ decay: 4, wet: 0.4 }).toDestination();
+// Compressor: "Glues" the sound, making it feel like a professional broadcast
+const compressor = new Tone.Compressor({
+  threshold: -24, // Starts compressing early
+  ratio: 4,       // Firm compression
+  attack: 0.03,   // Quick enough to catch peaks
+  release: 0.25   // Smooth release
+}).connect(limiter);
+
+const masterGain = new Tone.Gain(1).connect(compressor);
+
+// --- 2. SYNTH SETUP ---
+const synth = new Tone.PolySynth(Tone.Synth, {
+  oscillator: { 
+    type: "pulse",
+    width: 0.3 
+  },
+  envelope: { 
+    attack: 0.15,
+    decay: 0.2, 
+    sustain: 1, 
+    release: 0.8 
+  },
+  volume: -15 // Extra headroom for the compressor to work with
+}).connect(masterGain);
+
+// --- 3. FILTERING & EFFECTS ---
+const lowPass = new Tone.Filter({
+  frequency: 850, 
+  type: "lowpass",
+  rolloff: -48
+});
+
+const radioFilter = new Tone.Filter({
+  frequency: 1200,
+  type: "bandpass",
+  Q: 1.5
+});
+
+const reverb = new Tone.Reverb({ decay: 5, wet: 0.35 });
 const meter = new Tone.Meter();
 
-// --- NOISE SETUP (Interstation Static) ---
-const noiseGain = new Tone.Gain(0).toDestination();
-const noise = new Tone.Noise("pink").connect(noiseGain).start();
+const noiseGain = new Tone.Gain(0);
+const noiseFilter = new Tone.Filter(350, "lowpass"); 
+const noise = new Tone.Noise("pink").start();
 
-// Audio Chain
-synth.chain(lowPass, radioFilter, reverb, meter);
+// Final Routing
+// Synth -> Filters -> Reverb -> Meter -> MasterBus (Comp -> Limiter)
+synth.chain(lowPass, radioFilter, reverb, meter, masterGain);
+noise.chain(noiseFilter, noiseGain, masterGain);
 
 let currentDriftedChord = null;
 let playbackTimeout = null;
 let voiceState = {};
 
-// --- EXPORTS ---
-
-/**
- * Specifically handles the volume of the pink noise static.
- * @param {number} tunerValue - 0.0 to 1.0
- * @param {boolean} isBetweenStations - From Broadcaster state
- */
-export function handleInterstationNoise(tunerValue, isBetweenStations) {
-  let vol = 0;
-
-  if (isBetweenStations) {
-    // Solid static while "scanning"
-    vol = 0.25;
-  } else {
-    // Static increases as the signal "drifts" from 0
-    // At 0.0 (Pure Bach), static is 0.
-    vol = tunerValue > 0.3 ? (tunerValue - 0.3) * 0.3 : 0;
-  }
-
-  noiseGain.gain.rampTo(vol, 0.2);
-}
-
-/**
- * External bridge for UI components to trigger noise updates
- */
-export function updateNoiseFloor(tunerValue) {
-  handleInterstationNoise(tunerValue, Broadcaster.isBetweenStations);
-}
+// --- 4. EXPORTS ---
 
 export function setNextLatentChord(chord) {
   currentDriftedChord = chord;
 }
 
 export function setMasterVolume(val) {
-  const db = val === 0 ? -100 : Tone.gainToDb(val);
-  synth.volume.rampTo(db, 0.1);
+  masterGain.gain.rampTo(val, 0.1);
 }
 
-// --- ENGINE LOGIC ---
+export function updateNoiseFloor(tunerValue) {
+  const vol = Broadcaster.isBetweenStations 
+    ? 0.22 
+    : (tunerValue > 0.4 ? (tunerValue - 0.4) * 0.15 : 0);
+  noiseGain.gain.rampTo(vol, 0.2);
+}
+
+export function handleInterstationNoise(tunerValue, isBetweenStations) {
+  updateNoiseFloor(tunerValue);
+}
+
+// --- 5. ENGINE LOGIC ---
 
 function getSliceNotes(indices) {
   if (!currentDriftedChord || !currentDriftedChord.pitchclass) return {};
   const pitches = currentDriftedChord.pitchclass.split('-').map(Number).sort((a, b) => a - b);
   const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
+  
   const state = {};
   indices.forEach(idx => {
     const midi = pitches[idx] ?? pitches[pitches.length - 1];
@@ -77,8 +96,9 @@ function getSliceNotes(indices) {
 }
 
 function playNextSlice() {
-  const step = Broadcaster.nextStep();
+  if (playbackTimeout) clearTimeout(playbackTimeout);
 
+  const step = Broadcaster.nextStep();
   if (!step) {
     playbackTimeout = setTimeout(playNextSlice, 500);
     return;
@@ -97,7 +117,7 @@ function playNextSlice() {
     }
 
     if (targetNote && targetNote !== currentNote) {
-      const humanOffset = Math.random() * 0.02;
+      const humanOffset = Math.random() * 0.03;
       synth.triggerAttack(targetNote, now + humanOffset);
       voiceState[i] = targetNote;
     }
@@ -108,25 +128,60 @@ function playNextSlice() {
   playbackTimeout = setTimeout(playNextSlice, durationMs);
 }
 
-// --- LIFECYCLE ---
+// --- BPM & DRIFT SETUP ---
+const BASE_BPM = 72;
+let driftInterval = null;
+
+/**
+ * Initializes the BPM and starts the subtle "Wow" drift
+ */
+function startBpmDrift() {
+  Tone.getTransport().bpm.value = BASE_BPM;
+
+  // Periodically nudge the BPM every 2-4 seconds
+  driftInterval = setInterval(() => {
+    // Randomly shift BPM by +/- 1.5
+    const drift = (Math.random() - 0.5) * 3; 
+    const newBpm = BASE_BPM + drift;
+    
+    // Ramp to the new BPM smoothly over 2 seconds so it's not a jump
+    Tone.getTransport().bpm.rampTo(newBpm, 2);
+  }, 3000);
+}
+
+// --- 6. LIFECYCLE ---
 
 export async function startAudioContext() {
-  if (Tone.context.state !== 'running') {
+  if (Tone.getContext().state !== 'running') {
     await Tone.start();
-    await reverb.generate();
+    if (reverb.ready) await reverb.ready;
   }
 }
 
 export function startRadioTransport() {
   if (playbackTimeout) clearTimeout(playbackTimeout);
+
+  startBpmDrift();
+  
+  voiceState = {};
+  synth.releaseAll();
+  masterGain.gain.rampTo(1, 0.5);
   playNextSlice();
 }
 
 export function stopRadio() {
-  if (playbackTimeout) clearTimeout(playbackTimeout);
-  synth.releaseAll();
-  voiceState = {};
-  noiseGain.gain.setValueAtTime(0, Tone.now());
+  const fadeTime = 0.4;
+  masterGain.gain.rampTo(0, fadeTime);
+
+  // Clear the drift interval
+  if (driftInterval) clearInterval(driftInterval);
+
+  setTimeout(() => {
+    if (playbackTimeout) clearTimeout(playbackTimeout);
+    synth.releaseAll();
+    voiceState = {};
+    noiseGain.gain.setValueAtTime(0, Tone.now());
+  }, fadeTime * 1000);
 }
 
 export function getLevel() {
