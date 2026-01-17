@@ -5,8 +5,9 @@ import * as LatentMath from './latentStrategies.js';
 export const Broadcaster = reactive({
   // --- STATE ---
   tunerValue: 0,
-  selectedStrategy: 'angular', // options: 'knn', 'linear', 'angular'
+  selectedStrategy: 'knn', // options: 'knn', 'linear', 'angular'
   isBetweenStations: false,
+  isReady: false,
   
   // --- DATA ---
   chordDict: [],
@@ -20,140 +21,157 @@ export const Broadcaster = reactive({
   currentStepData: null,
 
   /**
-   * Initializes the Broadcaster with the required data.
+   * Initializes the Broadcaster with the local JSON data.
+   * Since imports are synchronous in Webpack, this runs immediately.
    */
   init(chords, phrases) {
-    // Ensure chords have z for LatentMath and x/y for UI visualization
+    if (!chords || chords.length === 0 || !phrases || phrases.length === 0) {
+      console.warn("Broadcaster: Initialization data missing or empty.");
+      return;
+    }
+
+    // Map chords to include x/y for potential UI visualization
     this.chordDict = chords.map(c => ({
       ...c,
       x: c.z[0], 
       y: c.z[1]
     }));
 
-    // Inject the dictionary into the math utility
+    // Inject the dictionary into the math utility for calculations
     LatentMath.setChordDict(this.chordDict);
-    
     this.phrases = phrases;
+
+    // Set readiness and find the first chorale
+    this.isReady = true;
     this.pickRandomStation();
+    console.log("Broadcaster Ready: Data successfully loaded from Webpack bundle.");
   },
 
   /**
-   * Resets the tuner and picks a new Bach chorale.
+   * Simulates finding a new radio station.
+   * Sets the 'isBetweenStations' flag to trigger static/noise.
    */
   pickRandomStation() {
+    if (!this.isReady) return;
+
     this.isBetweenStations = true;
-    setNextLatentChord(null); 
+    setNextLatentChord(null); // Clear the current chord goal
     handleInterstationNoise(this.tunerValue, true);
 
-    // Artificial delay to simulate "searching" through radio static
+    // Simulated "Scanning" delay (2 seconds of static)
     setTimeout(() => {
+      // Filter out recently played phrases to keep the installation fresh
       const pool = this.phrases.filter(p => !this.history.includes(p.id));
       const selection = pool.length > 0 ? pool : this.phrases;
       
       this.currentPhrase = selection[Math.floor(Math.random() * selection.length)];
       
-      // Update history
+      // Update history tracking
       this.history.push(this.currentPhrase.id);
       if (this.history.length > this.MAX_HISTORY) this.history.shift();
 
       this.stepIndex = -1;
       this.isBetweenStations = false;
+      
+      // Update audio engine: switch noise from 'scan' mode to 'drift' mode
       handleInterstationNoise(this.tunerValue, false);
       
-      console.log(`Now playing: ${this.currentPhrase.name} via ${this.selectedStrategy} logic`);
+      console.log(`Station Locked: ${this.currentPhrase.name} | Strategy: ${this.selectedStrategy}`);
     }, 2000);
   },
 
   /**
-   * Called by the recursive loop in audioPlayback.js.
-   * Advances one slice and calculates the substitution.
+   * Triggered by playNextSlice() in audioPlayback.js.
+   * Increments the index and calculates the next mathematical goal.
    */
   nextStep() {
-    if (this.isBetweenStations || !this.currentPhrase) return null;
+    if (!this.isReady || this.isBetweenStations || !this.currentPhrase) return null;
     
     this.stepIndex++;
 
-    // If we reach the end of the chorale, start searching again
+    // If we've reached the end of the Bach chorale, find a new one
     if (this.stepIndex >= this.currentPhrase.sequence.length) {
       this.pickRandomStation();
       return null;
     }
 
     this.currentStepData = this.currentPhrase.sequence[this.stepIndex];
+    
+    // Calculate the substitution immediately based on current tunerValue
     this.generateDriftChord();
     
     return this.currentStepData;
   },
 
   /**
-   * Real-time update from the UI Tuner dial.
+   * External update from the UI Dial.
+   * Updates both the noise floor and the latent substitution.
    */
   updateTuning(val) {
     this.tunerValue = val;
     handleInterstationNoise(val, this.isBetweenStations);
     
-    // If the user turns the knob mid-note, recalculate the drift immediately
-    if (!this.isBetweenStations && this.currentStepData) {
+    // Force a recalculation if the user turns the knob while a note is sustaining
+    if (this.isReady && !this.isBetweenStations && this.currentStepData) {
       this.generateDriftChord();
     }
   },
 
   /**
-   * THE DRIFT ENGINE
-   * Implements the logic from latentStrategies.js based on current tunerValue.
+   * THE LATENT ENGINE
+   * Uses LatentMath to find a replacement chord based on 'tunerValue'.
    */
   generateDriftChord() {
-    if (!this.currentStepData || !this.currentPhrase) return;
+    if (!this.isReady || !this.currentStepData || !this.currentPhrase) return;
 
     const sequence = this.currentPhrase.sequence;
     const i = this.stepIndex;
 
-    // A: Previous, B: Target (Current), C: Next
+    // Context: A (Previous), B (Target/Original), C (Next)
     const B = LatentMath.getChordById(this.currentStepData.id);
     const A = i > 0 ? LatentMath.getChordById(sequence[i - 1].id) : null;
     const C = i < sequence.length - 1 ? LatentMath.getChordById(sequence[i + 1].id) : null;
 
     if (!B) return;
 
-    // If tuned perfectly (tuner < 0.05), play pure Bach
+    // 1. Direct Signal: If tuned perfectly (tuner < 0.05), play the exact Bach chord
     if (this.tunerValue < 0.05) {
       setNextLatentChord(B);
       return;
     }
 
-    // Map tunerValue (0 to 1) to k (number of neighbors to consider)
+    // 2. Drifted Signal: Calculate substitution using the current strategy
+    // Map tuner (0 to 1) to k neighbors (1 to 40)
     const k = Math.max(1, Math.floor(this.tunerValue * 40));
-
     let finalChordId = B.id;
 
-    // --- APPLY STRATEGIES ---
-    // We use the math functions you provided to determine the substituted ID
     try {
       if (this.selectedStrategy === 'knn') {
-        // Find closest neighbor within k candidates
-        const neighbors = LatentMath.knn(B.z, this.chordDict, k);
-        // We pick a random neighbor among the k-closest for "shimmer"
-        const chosen = neighbors[Math.floor(Math.random() * neighbors.length)];
-        finalChordId = chosen ? chosen.id : B.id;
+        const neighbors = LatentMath.knnSubstitution(B, k);
+        // Randomly pick from k-neighbors to create a "shimmering" effect
+        if (Array.isArray(neighbors) && neighbors.length > 0) {
+          const chosen = neighbors[Math.floor(Math.random() * neighbors.length)];
+          finalChordId = chosen ? chosen.id : B.id;
+          console.log(k, B.id, chosen.id, finalChordId);
+        }
 
       } else if (this.selectedStrategy === 'linear' && A && C) {
-        // Midpoint bridge between A and C
+        // Interpolate between A and C, skipping B
         const result = LatentMath.linearInterpolation(A, C);
         finalChordId = result.id;
 
       } else if (this.selectedStrategy === 'angular' && A) {
-        // Aligns voice leading vector (Directional drift)
+        // Follow the vector from A to B but drift towards neighbors
         const result = LatentMath.knnAngularAlignment(A, B, k);
         finalChordId = result.id;
       }
     } catch (e) {
-      console.warn("Drift Calculation Error:", e);
+      console.warn("Broadcaster: Substitution error, falling back to original.", e);
       finalChordId = B.id;
     }
 
+    // Update the audio engine with the new target chord
     const driftedChord = LatentMath.getChordById(finalChordId);
-
-    console.log(driftedChord);
     setNextLatentChord(driftedChord || B);
   }
 });

@@ -30,6 +30,7 @@ const volumeValue = ref(0.5);
 onMounted(() => {
     if (latentJson && phrasesJson) {
         Broadcaster.init(latentJson.chords, phrasesJson);
+        updateNoiseFloor(tunerValue.value);
     }
 });
 
