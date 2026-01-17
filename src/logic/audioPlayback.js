@@ -1,6 +1,10 @@
 import * as Tone from 'tone';
 import { Broadcaster } from './Broadcaster';
 
+// --- BPM & DRIFT SETUP ---
+const BASE_BPM = 72;
+let driftInterval = null;
+
 // --- 1. THE MASTERING CHAIN ---
 // Limiter: The absolute ceiling (prevents digital clipping)
 const limiter = new Tone.Limiter(-1).toDestination();
@@ -17,22 +21,22 @@ const masterGain = new Tone.Gain(1).connect(compressor);
 
 // --- 2. SYNTH SETUP ---
 const synth = new Tone.PolySynth(Tone.Synth, {
-  oscillator: { 
+  oscillator: {
     type: "pulse",
-    width: 0.3 
+    width: 0.3
   },
-  envelope: { 
+  envelope: {
     attack: 0.15,
-    decay: 0.2, 
-    sustain: 1, 
-    release: 0.8 
+    decay: 0.2,
+    sustain: 1,
+    release: 0.8
   },
   volume: -15 // Extra headroom for the compressor to work with
 }).connect(masterGain);
 
 // --- 3. FILTERING & EFFECTS ---
 const lowPass = new Tone.Filter({
-  frequency: 850, 
+  frequency: 850,
   type: "lowpass",
   rolloff: -48
 });
@@ -47,7 +51,7 @@ const reverb = new Tone.Reverb({ decay: 5, wet: 0.35 });
 const meter = new Tone.Meter();
 
 const noiseGain = new Tone.Gain(0);
-const noiseFilter = new Tone.Filter(350, "lowpass"); 
+const noiseFilter = new Tone.Filter(350, "lowpass");
 const noise = new Tone.Noise("pink").start();
 
 // Final Routing
@@ -70,10 +74,14 @@ export function setMasterVolume(val) {
 }
 
 export function updateNoiseFloor(tunerValue) {
-  const vol = Broadcaster.isBetweenStations 
-    ? 0.22 
+  const vol = Broadcaster.isBetweenStations
+    ? 0.22
     : (tunerValue > 0.4 ? (tunerValue - 0.4) * 0.15 : 0);
   noiseGain.gain.rampTo(vol, 0.2);
+
+  const driftIntensity = Broadcaster.tunerValue * 5; // More drift at higher tuner values
+  const newBpm = BASE_BPM + (Math.random() - 0.5) * driftIntensity;
+  Tone.getTransport().bpm.rampTo(newBpm, 1);
 }
 
 export function handleInterstationNoise(tunerValue, isBetweenStations) {
@@ -86,7 +94,7 @@ function getSliceNotes(indices) {
   if (!currentDriftedChord || !currentDriftedChord.pitchclass) return {};
   const pitches = currentDriftedChord.pitchclass.split('-').map(Number).sort((a, b) => a - b);
   const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  
+
   const state = {};
   indices.forEach(idx => {
     const midi = pitches[idx] ?? pitches[pitches.length - 1];
@@ -123,14 +131,12 @@ function playNextSlice() {
     }
   }
 
-  const bpm = Tone.Transport.bpm.value || 60;
+  const bpm = Tone.getTransport().bpm.value || BASE_BPM;
   const durationMs = (step.duration * (60 / bpm)) * 1000;
   playbackTimeout = setTimeout(playNextSlice, durationMs);
 }
 
-// --- BPM & DRIFT SETUP ---
-const BASE_BPM = 72;
-let driftInterval = null;
+
 
 /**
  * Initializes the BPM and starts the subtle "Wow" drift
@@ -141,9 +147,9 @@ function startBpmDrift() {
   // Periodically nudge the BPM every 2-4 seconds
   driftInterval = setInterval(() => {
     // Randomly shift BPM by +/- 1.5
-    const drift = (Math.random() - 0.5) * 3; 
+    const drift = (Math.random() - 0.5) * 3;
     const newBpm = BASE_BPM + drift;
-    
+
     // Ramp to the new BPM smoothly over 2 seconds so it's not a jump
     Tone.getTransport().bpm.rampTo(newBpm, 2);
   }, 3000);
@@ -162,7 +168,7 @@ export function startRadioTransport() {
   if (playbackTimeout) clearTimeout(playbackTimeout);
 
   startBpmDrift();
-  
+
   voiceState = {};
   synth.releaseAll();
   masterGain.gain.rampTo(1, 0.5);

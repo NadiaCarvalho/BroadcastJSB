@@ -152,6 +152,8 @@ export const Broadcaster = reactive({
     }
 
     const driftedChord = LatentMath.getChordById(finalChordId);
+
+    console.log(driftedChord);
     setNextLatentChord(driftedChord || B);
   }
 });
