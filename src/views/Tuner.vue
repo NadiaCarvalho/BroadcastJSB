@@ -96,7 +96,7 @@ watch(volumeValue, (val) => {
                                 SCANNING LATENT SPACE...
                             </div>
                             <div v-else class="status-msg active">
-                                STATION: {{ Broadcaster.currentPhrase?.id }}:
+                                STATION: {{ Broadcaster.currentPhrase?.id }}
                                 <p class="status-msg active small">"{{ Broadcaster.currentPhrase?.name }}"</p>
                             </div>
                         </Transition>
