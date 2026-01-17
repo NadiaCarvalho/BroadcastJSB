@@ -78,6 +78,7 @@ The **Certified JSB Decoder** unit allows you to switch how the "drift" is calcu
 │   │   ├── latentStrategies.js # K-D Tree lookups
 │   │   └── distance.js      # Vector math (Euclidean, Angular)
 │   └── App.vue          # Main layout and assembly
+```
 
 ---
 
