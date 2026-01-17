@@ -20,7 +20,7 @@ import {
 
 // Data
 import latentJson from '../data/chords_bach_all.json';
-import phrasesJson from '../data/phrases.json';
+import phrasesJson from '../data/chorales.json';
 
 // --- STATE ---
 const isPoweredOn = ref(false);
