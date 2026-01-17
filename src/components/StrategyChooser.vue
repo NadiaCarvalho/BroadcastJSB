@@ -1,5 +1,5 @@
 <template>
-    <div class="strategy-column">
+    <div class="strategy-column" :class="{ 'power-off': disabled }">
         <button v-for="opt in ['knn', 'linear', 'angular']" :key="opt"
             :class="{ active: Broadcaster.selectedStrategy === opt }" @click="updateStrategy(opt)" class="toggle-btn">
             <div class="indicator-light"></div>
@@ -10,6 +10,10 @@
 
 <script setup>
 import { Broadcaster } from '../logic/Broadcaster';
+
+const props = defineProps({
+    disabled: Boolean
+});
 
 const updateStrategy = (mode) => {
     console.log("Switching Strategy to:", mode);
@@ -76,5 +80,28 @@ const updateStrategy = (mode) => {
 
 .toggle-btn:hover {
     background: #222;
+}
+
+.strategy-column.power-off {
+    border-color: #222;
+    background: #050505;
+}
+
+/* Force the indicator light to black when disabled */
+.power-off .indicator-light {
+    background: #000 !important;
+    box-shadow: none !important;
+    border-color: #111 !important;
+}
+
+/* Dim the labels when disabled */
+.power-off .label {
+    color: #333 !important;
+}
+
+/* Prevent hover effects when off */
+.power-off .toggle-btn {
+    cursor: default;
+    background: #0a0a0a !important;
 }
 </style>

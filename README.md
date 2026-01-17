@@ -78,3 +78,13 @@ The **Certified JSB Decoder** unit allows you to switch how the "drift" is calcu
 │   │   ├── latentStrategies.js # K-D Tree lookups
 │   │   └── distance.js      # Vector math (Euclidean, Angular)
 │   └── App.vue          # Main layout and assembly
+
+---
+
+## 📜 Credits & Data
+
+* Musical Data: Based on the 371 Bach Chorales provided by the Music21 corpus.
+
+* Portrait: Johann Sebastian Bach by Elias Gottlob Haussmann (1746).
+
+* Design: Inspired by mid-century Braun and Telefunken radio receivers.
