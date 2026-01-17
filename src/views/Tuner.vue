@@ -115,7 +115,7 @@ watch(volumeValue, (val) => {
                         <div class="unit-label">OUTPUT</div>
                         <VUMeter :active="isPoweredOn" />
                         <div class="knob-spacer"></div>
-                        <TunerDial v-model="volumeValue" :size="55" :label_min="0" :label_max="100"/>
+                        <TunerDial v-model="volumeValue" :size="55" :labels="['MIN', 'MAX']"/>
                     </div>
 
                     <div class="control-unit">

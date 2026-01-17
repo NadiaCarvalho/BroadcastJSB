@@ -3,15 +3,14 @@ import { ref, computed } from 'vue';
 const props = defineProps({
   modelValue: { type: Number, default: 0 },
   size: { type: Number, default: 80 },
-  label_min: { type: String, default: 'ORIGINAL' },
-  label_max: { type: String, default: 'DRIFT' },
+  labels: { type: Array, default: () => ['ORIGINAL', 'DRIFT'] } // e.g., ['MIN', 'MAX']
 });
 const emit = defineEmits(['update:modelValue']);
 
 const startY = ref(0);
 const startVal = ref(0);
 
-const labelWidth = computed(() => props.size > 100 ? props.size * 1.05 : props.size * 1.4);
+const labelWidth = computed(() => props.size > 100 ? props.size * .97 : props.size * 1.4);
 
 function initDrag(e) {
   startY.value = e.clientY;
@@ -44,8 +43,8 @@ function endDrag() {
       <div class="marker" :style="{ height: (size * 0.15) + 'px' }"></div>
     </div>
     <div class="dial-labels" :style="{ width: labelWidth + 'px' }">
-      <span>{{ label_min }}</span>
-      <span>{{ label_max }}</span>
+      <span>{{ labels[0] }}</span>
+      <span>{{ labels[1] }}</span>
     </div>
   </div>
 </template>
