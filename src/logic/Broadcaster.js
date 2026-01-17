@@ -5,7 +5,7 @@ import * as LatentMath from './latentStrategies.js';
 export const Broadcaster = reactive({
   // --- STATE ---
   tunerValue: 0,
-  selectedStrategy: 'knn', // options: 'knn', 'linear', 'angular'
+  selectedStrategy: 'angular', // options: 'knn', 'linear', 'angular'
   isBetweenStations: false,
   isReady: false,
   
@@ -152,7 +152,6 @@ export const Broadcaster = reactive({
         if (Array.isArray(neighbors) && neighbors.length > 0) {
           const chosen = neighbors[Math.floor(Math.random() * neighbors.length)];
           finalChordId = chosen ? chosen.id : B.id;
-          console.log(k, B.id, chosen.id, finalChordId);
         }
 
       } else if (this.selectedStrategy === 'linear' && A && C) {

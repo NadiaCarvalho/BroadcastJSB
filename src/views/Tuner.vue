@@ -7,6 +7,7 @@ import TunerDial from '../components/TunerDial.vue';
 import SignalMeter from '../components/SignalMeter.vue';
 import TuningLED from '../components/TuningLED.vue';
 import VUMeter from '../components/VUMeter.vue';
+import StrategyChooser from '../components/StrategyChooser.vue'
 
 // Logic
 import { Broadcaster } from '../logic/Broadcaster';
@@ -116,10 +117,13 @@ watch(volumeValue, (val) => {
                         <div class="unit-label">OUTPUT</div>
                         <VUMeter :active="isPoweredOn" />
                         <div class="knob-spacer"></div>
-                        <TunerDial v-model="volumeValue" :size="55" :labels="['MIN', 'MAX']"/>
+                        <TunerDial v-model="volumeValue" :size="55" :labels="['MIN', 'MAX']" />
                     </div>
 
-                    <div class="control-unit">
+                    <div class="control-unit decoder-stack">
+                        <div class="unit-label">DECODER</div>
+                        <StrategyChooser />
+                        <div class="seal-spacer"></div>
                         <div class="calibration-seal">
                             <div class="seal-inner">CERTIFIED<br />JSB</div>
                         </div>
@@ -410,5 +414,26 @@ watch(volumeValue, (val) => {
 .fade-enter-from,
 .fade-leave-to {
     opacity: 0;
+}
+
+.decoder-stack {
+    justify-content: flex-end; /* Keeps labels aligned at top */
+    height: 100%;
+}
+
+.seal-spacer {
+    height: 15px; /* Adjust gap between buttons and seal */
+}
+
+.calibration-seal {
+    /* Ensure the seal feels connected to the stack */
+    border-color: #3a2a1d;
+    opacity: 0.8;
+}
+
+/* Dim the indicator lights when power is off */
+.power-off .indicator-light {
+    background: #000 !important;
+    box-shadow: none !important;
 }
 </style>

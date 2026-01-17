@@ -12,7 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "static-kdtree": "^1.0.2",
+    "kd-tree-javascript": "^1.0.3",
     "tone": "^15.1.22",
     "vue": "^3.5.25"
   },
