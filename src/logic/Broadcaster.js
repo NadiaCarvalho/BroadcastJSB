@@ -76,7 +76,7 @@ export const Broadcaster = reactive({
       // Update audio engine: switch noise from 'scan' mode to 'drift' mode
       handleInterstationNoise(this.tunerValue, false);
       
-      console.log(`Station Locked: ${this.currentPhrase.name} | Strategy: ${this.selectedStrategy}`);
+      console.log(`Station Locked: ${this.currentPhrase.id}: ${this.currentPhrase.name} | Strategy: ${this.selectedStrategy}`);
     }, 2000);
   },
 
@@ -141,8 +141,8 @@ export const Broadcaster = reactive({
     }
 
     // 2. Drifted Signal: Calculate substitution using the current strategy
-    // Map tuner (0 to 1) to k neighbors (1 to 40)
-    const k = Math.max(1, Math.floor(this.tunerValue * 40));
+    // Map tuner (0 to 1) to k neighbors (1 to 100)
+    const k = Math.max(1, Math.floor(this.tunerValue * 100));
     let finalChordId = B.id;
 
     try {

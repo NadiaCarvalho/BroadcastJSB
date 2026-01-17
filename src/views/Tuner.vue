@@ -96,7 +96,8 @@ watch(volumeValue, (val) => {
                                 SCANNING LATENT SPACE...
                             </div>
                             <div v-else class="status-msg active">
-                                STATION: {{ Broadcaster.currentPhrase?.name }}
+                                STATION: {{ Broadcaster.currentPhrase?.id }}:
+                                <p class="status-msg active small">"{{ Broadcaster.currentPhrase?.name }}"</p>
                             </div>
                         </Transition>
                     </div>
@@ -124,8 +125,8 @@ watch(volumeValue, (val) => {
                         <div class="unit-label">DECODER</div>
                         <StrategyChooser />
                         <div class="seal-spacer"></div>
-                        <div class="calibration-seal">
-                            <div class="seal-inner">CERTIFIED<br />JSB</div>
+                        <div :class="['calibration-seal', { 'flicker': Broadcaster.isBetweenStations }]">
+                            <div class="seal-inner"><span class="seal-text">CERTIFIED<br />JSB</span></div>
                         </div>
                     </div>
                 </div>
@@ -314,6 +315,13 @@ watch(volumeValue, (val) => {
     text-shadow: 0 0 8px rgba(66, 185, 131, 0.6);
 }
 
+.status-msg.small {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 2px;
+    margin-bottom: 0;
+}
+
 .scanning {
     color: #f1c40f;
     animation: blink 1.5s infinite;
@@ -417,18 +425,72 @@ watch(volumeValue, (val) => {
 }
 
 .decoder-stack {
-    justify-content: flex-end; /* Keeps labels aligned at top */
+    justify-content: flex-end;
+    /* Keeps labels aligned at top */
     height: 100%;
 }
 
 .seal-spacer {
-    height: 15px; /* Adjust gap between buttons and seal */
+    height: 15px;
+    /* Adjust gap between buttons and seal */
 }
 
 .calibration-seal {
-    /* Ensure the seal feels connected to the stack */
-    border-color: #3a2a1d;
-    opacity: 0.8;
+    width: 80px;
+    height: 80px;
+    border: 2px dashed #5a4b41;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #1a1410;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 15px #000;
+}
+
+.calibration-seal::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("@/assets/Johann_Sebastian_Bach.jpg");
+    background-size: cover;
+    background-position: center 10%;
+    filter: sepia(1) contrast(1.2) brightness(0.7) grayscale(0.5);
+    opacity: 0.4;
+    mix-blend-mode: luminosity;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+}
+
+/* THE FLICKER LOGIC */
+.calibration-seal.flicker::before {
+    animation: signal-jitter 0.2s infinite;
+}
+
+.calibration-seal.flicker::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.15;
+    z-index: 1;
+    pointer-events: none;
+}
+
+@keyframes signal-jitter {
+    0% { opacity: 0.1; filter: brightness(0.2) blur(1px); }
+    20% { opacity: 0.3; filter: brightness(0.5) blur(0px); }
+    40% { opacity: 0.05; filter: brightness(0.1) blur(2px); }
+    60% { opacity: 0.2; filter: brightness(0.4) blur(0px); }
+    80% { opacity: 0.15; filter: brightness(0.3) blur(1px); }
+    100% { opacity: 0.1; filter: brightness(0.2) blur(1px); }
+}
+
+/* Ensure the seal dims when powered off as well */
+.power-off .calibration-seal::before {
+    opacity: 0 !important;
+    animation: none !important;
 }
 
 /* Dim the indicator lights when power is off */
