@@ -6,6 +6,7 @@ import PowerSwitch from '../components/PowerSwitch.vue';
 import TunerDial from '../components/TunerDial.vue';
 import SignalMeter from '../components/SignalMeter.vue';
 import TuningLED from '../components/TuningLED.vue';
+import VUMeter from '../components/VUMeter.vue';
 
 // Logic
 import { Broadcaster } from '../logic/Broadcaster';
@@ -13,7 +14,8 @@ import {
     startRadioTransport,
     startAudioContext,
     stopRadio,
-    updateNoiseFloor
+    updateNoiseFloor,
+    setMasterVolume
 } from '../logic/audioPlayback';
 
 // Data
@@ -23,18 +25,18 @@ import phrasesJson from '../data/phrases.json';
 // --- STATE ---
 const isPoweredOn = ref(false);
 const tunerValue = ref(0.0);
+const volumeValue = ref(0.5);
 
-// --- INITIALIZATION ---
 onMounted(() => {
     if (latentJson && phrasesJson) {
         Broadcaster.init(latentJson.chords, phrasesJson);
     }
 });
 
-// --- POWER LOGIC ---
 watch(isPoweredOn, async (on) => {
     if (on) {
         await startAudioContext();
+        setMasterVolume(volumeValue.value);
         startRadioTransport();
         Broadcaster.updateTuning(tunerValue.value);
     } else {
@@ -43,11 +45,16 @@ watch(isPoweredOn, async (on) => {
     }
 });
 
-// --- TUNING LOGIC ---
 watch(tunerValue, (val) => {
     if (isPoweredOn.value) {
         Broadcaster.updateTuning(val);
         updateNoiseFloor(val);
+    }
+});
+
+watch(volumeValue, (val) => {
+    if (isPoweredOn.value) {
+        setMasterVolume(val);
     }
 });
 </script>
@@ -62,8 +69,7 @@ watch(tunerValue, (val) => {
             </div>
 
             <div class="main-panel">
-
-                <div class="display-row">
+                <div class="panel-row">
                     <SignalMeter :active="isPoweredOn" :tuner-value="tunerValue"
                         :is-scanning="Broadcaster.isScanning || Broadcaster.isBetweenStations" />
 
@@ -78,29 +84,44 @@ watch(tunerValue, (val) => {
                     <TuningLED :active="isPoweredOn" :tuner-value="tunerValue" />
                 </div>
 
-                <div class="info-strip">
-                    <Transition name="fade" mode="out-in">
-                        <div v-if="!isPoweredOn" class="status-msg offline">OFF AIR</div>
-                        <div v-else-if="Broadcaster.isBetweenStations" class="status-msg scanning">
-                            SCANNING LATENT SPACE...
-                        </div>
-                        <div v-else class="status-msg active">
-                            STATION: {{ Broadcaster.currentPhrase?.name }}
-                        </div>
-                    </Transition>
+                <div class="speaker-grill-section">
+                    <div class="mesh-pattern"></div>
+                    <div class="mesh-overlay"></div>
+                    <div class="info-strip">
+                        <Transition name="fade" mode="out-in">
+                            <div v-if="!isPoweredOn" class="status-msg offline">OFF AIR</div>
+                            <div v-else-if="Broadcaster.isBetweenStations" class="status-msg scanning">
+                                SCANNING LATENT SPACE...
+                            </div>
+                            <div v-else class="status-msg active">
+                                STATION: {{ Broadcaster.currentPhrase?.name }}
+                            </div>
+                        </Transition>
+                    </div>
                 </div>
 
-                <div class="control-row">
-                    <div class="power-unit">
+                <div class="panel-row controls-layout">
+                    <div class="control-unit">
+                        <div class="unit-label">SYSTEM</div>
                         <PowerSwitch v-model="isPoweredOn" />
                     </div>
 
-                    <div class="tuner-unit">
-                        <TunerDial v-model="tunerValue" />
+                    <div class="control-unit">
+                        <div class="unit-label">TUNING</div>
+                        <TunerDial v-model="tunerValue" :size="174" />
                     </div>
 
-                    <div class="calibration-seal">
-                        <div class="seal-inner">CERTIFIED BACH</div>
+                    <div class="control-unit audio-group">
+                        <div class="unit-label">OUTPUT</div>
+                        <VUMeter :active="isPoweredOn" />
+                        <div class="knob-spacer"></div>
+                        <TunerDial v-model="volumeValue" :size="55" :label_min="0" :label_max="100"/>
+                    </div>
+
+                    <div class="control-unit">
+                        <div class="calibration-seal">
+                            <div class="seal-inner">CERTIFIED<br />JSB</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -111,7 +132,6 @@ watch(tunerValue, (val) => {
             <div class="rivet br"></div>
         </div>
 
-        <div class="console-shadow"></div>
         <footer class="faceplate-footer">
             <span>TONAL LATTICE DECODER v1.0</span>
             <span>LEIPZIG, GERMANY</span>
@@ -122,7 +142,6 @@ watch(tunerValue, (val) => {
 <style scoped>
 .installation-container {
     min-height: 100vh;
-    /* Lighter background gradient */
     background: radial-gradient(circle, #2a2a2a 0%, #111 100%);
     display: flex;
     flex-direction: column;
@@ -132,8 +151,9 @@ watch(tunerValue, (val) => {
 }
 
 .radio-console {
-    width: 600px;
-    background: #4a3528; /* Slightly lighter Walnut */
+    width: 650px;
+    background: #4a3528;
+    /* Walnut Wood Cabinet */
     border: 12px solid #36261c;
     border-radius: 12px;
     padding: 40px;
@@ -142,35 +162,119 @@ watch(tunerValue, (val) => {
     transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Softer Power Off: Still visible, just less "glowy" */
 .power-off {
     filter: brightness(0.85) saturate(0.8);
-}
-
-.power-off .main-panel {
-    background: #1a1a1a; /* Lighter than pure black when off */
-    box-shadow: inset 0 0 20px #000;
 }
 
 .main-panel {
     background: #121212;
     border: 2px solid #5a4b41;
     border-radius: 4px;
-    padding: 25px;
+    padding: 30px;
     display: flex;
     flex-direction: column;
-    gap: 25px;
+    gap: 30px;
     box-shadow: inset 0 0 40px #000;
-    transition: background 0.8s ease;
 }
 
+.panel-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.controls-layout {
+    align-items: flex-end;
+}
+
+/* --- SPEAKER GRILL STYLING --- */
+.speaker-grill-section {
+    position: relative;
+    height: 85px;
+    background: #050505;
+    border-radius: 4px;
+    border: 2px solid #2a1b12;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: inset 0 0 20px #000;
+}
+
+.mesh-pattern {
+    position: absolute;
+    inset: 0;
+    /* Deep brass/wood toned mesh dots */
+    background-image: radial-gradient(circle, #3d2b1f 25%, transparent 30%);
+    background-size: 6px 6px;
+    opacity: 0.7;
+}
+
+.mesh-overlay {
+    position: absolute;
+    inset: 0;
+    /* Simulates a fine vertical fabric weave or shadow */
+    background: repeating-linear-gradient(90deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 0, 0, 0.5) 4px);
+    pointer-events: none;
+}
+
+.info-strip {
+    z-index: 10;
+    background: #0d0d0d;
+    padding: 8px 35px;
+    border: 1px solid #3a2a1d;
+    border-radius: 2px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+    min-width: 300px;
+    text-align: center;
+}
+
+/* --- UNIT COMPONENTS --- */
+.control-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 90px;
+}
+
+.audio-group {
+    gap: 10px;
+}
+
+.knob-spacer {
+    height: 5px;
+}
+
+.unit-label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.6rem;
+    color: #a68b6d;
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* --- FREQUENCY WINDOW --- */
 .frequency-window {
-    width: 180px;
-    height: 55px;
-    background: #241c14; /* Slightly lighter background */
+    width: 220px;
+    height: 65px;
+    background: #241c14;
     border: 1px solid #444;
     position: relative;
     overflow: hidden;
+    box-shadow: inset 0 0 10px #000;
+}
+
+.glass-sheen {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+    z-index: 6;
+    pointer-events: none;
 }
 
 .needle {
@@ -181,39 +285,23 @@ watch(tunerValue, (val) => {
     background: #ff4d00;
     box-shadow: 0 0 8px #ff4d00;
     z-index: 5;
-    transition: left 0.15s ease-out, opacity 0.5s ease;
-}
-
-/* Dim the needle when off */
-.power-off .needle {
-    opacity: 0.3;
-    box-shadow: none;
+    transition: left 0.15s ease-out;
 }
 
 .scale-numbers {
     display: flex;
     justify-content: space-between;
-    padding: 30px 10px 0;
-    color: #a68b6d; /* Increased contrast for readability */
+    padding: 38px 12px 0;
+    color: #a68b6d;
     font-family: 'Courier New', monospace;
-    font-size: 0.6rem;
+    font-size: 0.65rem;
     opacity: 0.8;
-}
-
-.info-strip {
-    height: 40px;
-    background: #0d0d0d;
-    border-radius: 2px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-top: 1px solid #222;
 }
 
 .status-msg {
     font-family: 'Courier New', monospace;
-    font-size: 0.7rem;
-    letter-spacing: 1px;
+    font-size: 0.85rem;
+    letter-spacing: 2px;
 }
 
 .active {
@@ -223,38 +311,31 @@ watch(tunerValue, (val) => {
 
 .scanning {
     color: #f1c40f;
-    animation: blink 1s infinite;
+    animation: blink 1.5s infinite;
 }
 
 .offline {
-    color: #444; /* Visible but clearly 'unpowered' */
+    color: #444;
 }
 
-.display-row,
-.control-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
+/* --- CABINET DETAILS --- */
 .cabinet-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 25px;
     color: #a68b6d;
 }
 
 .brand {
-    font-size: 1.8rem;
+    font-size: 2.2rem;
     font-family: serif;
-    opacity: 0.8;
-    letter-spacing: 4px;
+    letter-spacing: 5px;
 }
 
 .sub-brand {
-    font-size: 0.5rem;
-    letter-spacing: 2px;
-    margin-top: 5px;
+    font-size: 0.6rem;
+    letter-spacing: 3px;
     opacity: 0.6;
+    margin-top: 5px;
 }
 
 .rivet {
@@ -263,61 +344,70 @@ watch(tunerValue, (val) => {
     background: #444;
     border-radius: 50%;
     position: absolute;
-    box-shadow: inset 1px 1px 2px #000, 1px 1px 1px rgba(255,255,255,0.05);
+    box-shadow: inset 1px 1px 2px #000;
 }
 
-.tl { top: 15px; left: 15px; }
-.tr { top: 15px; right: 15px; }
-.bl { bottom: 15px; left: 15px; }
-.br { bottom: 15px; right: 15px; }
+.tl {
+    top: 15px;
+    left: 15px;
+}
+
+.tr {
+    top: 15px;
+    right: 15px;
+}
+
+.bl {
+    bottom: 15px;
+    left: 15px;
+}
+
+.br {
+    bottom: 15px;
+    right: 15px;
+}
+
+.faceplate-footer {
+    margin-top: 45px;
+    display: flex;
+    justify-content: space-between;
+    width: 650px;
+    font-size: 0.6rem;
+    color: #666;
+    opacity: 0.6;
+}
+
+.calibration-seal {
+    width: 70px;
+    height: 70px;
+    border: 2px dashed #5a4b41;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.seal-inner {
+    font-size: 0.5rem;
+    color: #a68b6d;
+    text-align: center;
+    line-height: 1.2;
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0.3;
+    }
+}
 
 .fade-enter-active,
 .fade-leave-active {
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s ease;
 }
 
 .fade-enter-from,
 .fade-leave-to {
     opacity: 0;
-}
-
-@keyframes blink {
-    50% { opacity: 0.3; }
-}
-
-.console-shadow {
-    width: 580px;
-    height: 30px;
-    background: rgba(0, 0, 0, 0.4);
-    filter: blur(20px);
-    margin-top: -15px;
-}
-
-.faceplate-footer {
-    margin-top: 40px;
-    display: flex;
-    justify-content: space-between;
-    width: 600px;
-    font-size: 0.5rem;
-    color: #666;
-    letter-spacing: 1px;
-}
-
-.calibration-seal {
-  width: 60px; height: 60px;
-  border: 2px dashed #5a4b41;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px;
-  opacity: 0.7;
-}
-
-.seal-inner {
-  font-size: 0.4rem;
-  color: #a68b6d;
-  text-align: center;
-  font-weight: bold;
 }
 </style>

@@ -41,6 +41,10 @@ noise.chain(noiseFilter, noiseGain);
 // Initial Volume Settings
 synth.volume.value = -18;
 
+// Add a Meter node at the end of the chain
+const meter = new Tone.Meter();
+synth.connect(meter); // Connect the synth to the meter
+
 // --- STATE ---
 let queuedChord = null;
 
@@ -150,4 +154,26 @@ export function stopRadio() {
 
   queuedChord = null;
   console.log('BroadcastJSB: Signal Cut');
+}
+
+/**
+ * Updates the master volume
+ * @param {Number} val - 0.0 to 1.0
+ */
+export function setMasterVolume(val) {
+  // Map 0-1 to -60dB (silent) to 0dB (loud)
+  // We use Tone.dbToGain and back or a simple linear-to-log mapping
+  const db = val === 0 ? -100 : Tone.gainToDb(val);
+  synth.volume.rampTo(db, 0.1);
+}
+
+/**
+ * Gets the current peak volume in a 0-1 range for the UI
+ */
+export function getLevel() {
+  // Get the decibel level and convert to a 0-1 normalized value
+  const db = meter.getValue();
+  // Map -60dB (silence) to 0dB (loud) into 0.0 to 1.0
+  const level = Math.pow(10, db / 20); 
+  return Math.min(Math.max(level, 0), 1);
 }

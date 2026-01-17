@@ -1,10 +1,17 @@
 <script setup>
-import { ref } from 'vue';
-const props = defineProps(['modelValue']);
+import { ref, computed } from 'vue';
+const props = defineProps({
+  modelValue: { type: Number, default: 0 },
+  size: { type: Number, default: 80 },
+  label_min: { type: String, default: 'ORIGINAL' },
+  label_max: { type: String, default: 'DRIFT' },
+});
 const emit = defineEmits(['update:modelValue']);
 
 const startY = ref(0);
 const startVal = ref(0);
+
+const labelWidth = computed(() => props.size > 100 ? props.size * 1.05 : props.size * 1.4);
 
 function initDrag(e) {
   startY.value = e.clientY;
@@ -14,7 +21,9 @@ function initDrag(e) {
 }
 
 function doDrag(e) {
-  const delta = (startY.value - e.clientY) / 250;
+  // Sensitivity adjusted for size: larger knobs feel "heavier"
+  const sensitivity = props.size > 80 ? 250 : 150;
+  const delta = (startY.value - e.clientY) / sensitivity;
   const next = Math.min(1, Math.max(0, startVal.value + delta));
   emit('update:modelValue', next);
 }
@@ -26,13 +35,17 @@ function endDrag() {
 </script>
 
 <template>
-  <div class="dial-container">
-    <div class="knob" @mousedown="initDrag" :style="{ transform: `rotate(${(modelValue * 270) - 135}deg)` }">
-      <div class="marker"></div>
+  <div class="dial-container" :style="{ width: size + 'px' }">
+    <div class="knob" @mousedown="initDrag" :style="{
+    width: size + 'px',
+    height: size + 'px',
+    transform: `rotate(${(modelValue * 270) - 135}deg)`
+  }">
+      <div class="marker" :style="{ height: (size * 0.15) + 'px' }"></div>
     </div>
-    <div class="dial-labels">
-      <span>ORIGINAL</span>
-      <span>DRIFT</span>
+    <div class="dial-labels" :style="{ width: labelWidth + 'px' }">
+      <span>{{ label_min }}</span>
+      <span>{{ label_max }}</span>
     </div>
   </div>
 </template>
@@ -42,35 +55,45 @@ function endDrag() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 15px;
+  user-select: none;
 }
 
 .knob {
-  width: 80px;
-  height: 80px;
-  background: radial-gradient(circle, #333, #111);
-  border: 4px solid #222;
+  background: radial-gradient(circle at 30% 30%, #444, #111);
+  border: 3px solid #222;
   border-radius: 50%;
   position: relative;
   cursor: ns-resize;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.5),
+    inset 0 2px 2px rgba(255, 255, 255, 0.1);
+}
+
+/* Hover glow effect */
+.knob:hover {
+  box-shadow: 0 0 12px rgba(166, 139, 109, 0.3), 0 4px 8px rgba(0,0,0,0.5);
 }
 
 .marker {
   position: absolute;
-  top: 8px;
+  top: 10%;
   left: 50%;
-  width: 4px;
-  height: 12px;
-  background: #42b983;
+  width: 3px;
+  background: #ff4d00;
   transform: translateX(-50%);
+  border-radius: 2px;
+  box-shadow: 0 0 4px rgba(255, 77, 0, 0.6);
 }
 
 .dial-labels {
-  width: 120px;
   display: flex;
   justify-content: space-between;
-  font-size: 0.5rem;
-  color: #555;
+  font-family: 'Courier New', monospace;
+  font-size: 0.55rem;
+  color: #8b7355;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: bold;
+  pointer-events: none;
 }
 </style>
