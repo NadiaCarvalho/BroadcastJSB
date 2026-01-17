@@ -1,6 +1,8 @@
 import * as Tone from 'tone';
+import { Broadcaster } from './Broadcaster';
 
 // --- SYNTH SETUP ---
+// Organ-style synth using multiple oscillators for a rich, "church-like" sound
 const synth = new Tone.PolySynth(Tone.Synth, {
   oscillator: { type: "fatsawtooth", count: 3, spread: 30 },
   envelope: { attack: 0.15, decay: 0.3, sustain: 1, release: 1.2 }
@@ -8,42 +10,42 @@ const synth = new Tone.PolySynth(Tone.Synth, {
 
 // --- EFFECTS CHAIN ---
 
-// 1. Radio Filter (Bandpass)
+// 1. Radio Filter (Bandpass) - simulating the frequency response of a radio
 const radioFilter = new Tone.Filter({
   type: "bandpass",
   frequency: 1200,
   Q: 1.5
 }).toDestination();
 
-// 2. Tremolo (Organ Tremulant)
+// 2. Tremolo (The organ's 'tremulant' mechanical shimmer)
 const tremolo = new Tone.Tremolo({
   frequency: 5.5,
   depth: 0.5
 }).toDestination().start();
 
-// 3. Reverb (Cathedral Space)
+// 3. Reverb (Adding spatial depth)
 const reverb = new Tone.Reverb({
   decay: 4.5,
   wet: 0.45
 }).toDestination();
 
-// 4. Noise Floor (Radio Static)
+// 4. Noise Floor (Static/Interference)
 const noise = new Tone.Noise("pink");
 const noiseFilter = new Tone.Filter(1000, "lowpass");
 const noiseGain = new Tone.Gain(0).toDestination();
 
-// Connect Synth and Noise
+// Chain everything together
 synth.chain(radioFilter, tremolo, reverb);
 noise.chain(noiseFilter, noiseGain);
 
-// Lower volume to prevent clipping
+// Initial Volume Settings
 synth.volume.value = -18;
 
 // --- STATE ---
 let queuedChord = null;
 
 /**
- * MIDI to Tone.js Note Name conversion
+ * Maps MIDI numbers from the JSON (e.g., "36-48-54-64-69") to Tone.js Notes
  */
 function midiToNoteNames(pitchclassString) {
   if (!pitchclassString) return [];
@@ -58,51 +60,76 @@ function midiToNoteNames(pitchclassString) {
 }
 
 /**
- * Start Audio Context
+ * User interaction starts the audio engine
  */
 export async function startAudioContext() {
   if (Tone.context.state !== 'running') {
     await Tone.start();
     await reverb.generate();
-    noise.start(); // Start the noise generator source
-    console.log('Audio Context Started');
+    noise.start();
+    console.log('BroadcastJSB: Engine Online');
   }
 }
 
 /**
- * Update the chord to be played on the next beat
+ * Receives the drifted chord from Broadcaster.js
  */
 export function setNextLatentChord(chord) {
   queuedChord = chord;
 }
 
 /**
- * Dynamics: Static and Filter Narrowing
+ * Handles the "Radio" soundscape
+ * @param {Number} tunerValue - Knob 0.0 to 1.0
+ * @param {Boolean} isBetweenStations - Whether we are in the transition pause
  */
-export function updateNoiseFloor(tunerValue) {
-  if (Tone.Transport.state !== 'running') return;
-  
-  const noiseVolume = tunerValue > 0.4 ? (tunerValue - 0.4) * 0.15 : 0;
-  noiseGain.gain.rampTo(noiseVolume, 0.4);
+export function handleInterstationNoise(tunerValue, isBetweenStations) {
+  let volume = 0;
+  let targetQ = 1.5 + (tunerValue * 8);
 
-  const newQ = 1.5 + (tunerValue * 8);
-  radioFilter.Q.rampTo(newQ, 0.5);
+  if (isBetweenStations) {
+    // Max static and thin filter during search
+    volume = 0.2; 
+    targetQ = 15;
+  } else {
+    // Static rises as we drift away from 0.0
+    volume = tunerValue > 0.4 ? (tunerValue - 0.4) * 0.15 : 0;
+  }
+
+  noiseGain.gain.rampTo(volume, 0.4);
+  radioFilter.Q.rampTo(targetQ, 0.4);
 }
 
 /**
- * Starts the Bach "Tactus"
+ * Dynamics Update (convenience wrapper for tuner watch)
+ */
+export function updateNoiseFloor(tunerValue) {
+  handleInterstationNoise(tunerValue, Broadcaster.isBetweenStations);
+}
+
+/**
+ * THE TACTUS (Heartbeat of the installation)
  */
 export function startRadioTransport() {
-  // Ensure volume is reset if it was previously killed
+  // Reset synth volume
   synth.volume.setValueAtTime(-18, Tone.now());
   
+  // Bach Chorale Tempo
   Tone.Transport.bpm.value = 68;
 
-  // Schedule the repeating pulse
+  // This loop triggers every quarter note (the beat)
   Tone.Transport.scheduleRepeat((time) => {
-    if (queuedChord && queuedChord.pitchclass) {
+    // 1. Tell Broadcaster to check sequence and find next chord
+    Broadcaster.nextStep();
+
+    // 2. Play the chord if we are not between stations
+    if (!Broadcaster.isBetweenStations && queuedChord && queuedChord.pitchclass) {
       const notes = midiToNoteNames(queuedChord.pitchclass);
-      synth.triggerAttackRelease(notes, "2n", time);
+      
+      // Determine rhythm from current phrase or default to 4n
+      const rhythm = Broadcaster.currentPhrase?.rhythms[Broadcaster.stepIndex] || "4n";
+      
+      synth.triggerAttackRelease(notes, rhythm, time);
     }
   }, "4n");
 
@@ -110,22 +137,17 @@ export function startRadioTransport() {
 }
 
 /**
- * POWER OFF: Aggressive Silence
+ * STOP: Aggressive kill-switch for Power Off
  */
 export function stopRadio() {
-  // 1. Kill the Transport immediately
   Tone.Transport.stop();
-  Tone.Transport.cancel(0); // This clears the scheduled repeats
+  Tone.Transport.cancel(0);
 
-  // 2. Kill the Audio Nodes
   const now = Tone.now();
-  noiseGain.gain.cancelScheduledValues(now);
   noiseGain.gain.setValueAtTime(0, now);
-  
-  synth.releaseAll(); // Stop any currently ringing notes
-  synth.volume.cancelScheduledValues(now);
-  synth.volume.setValueAtTime(-100, now); // Absolute silence
+  synth.releaseAll();
+  synth.volume.setValueAtTime(-100, now);
 
   queuedChord = null;
-  console.log('Radio Power Off: Signal Terminated');
+  console.log('BroadcastJSB: Signal Cut');
 }
