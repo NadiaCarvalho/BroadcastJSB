@@ -1,5 +1,5 @@
 import * as Tone from 'tone';
-import { Broadcaster } from './Broadcaster';
+import { Broadcaster } from './broadcaster';
 
 // --- BPM & DRIFT SETUP ---
 const BASE_BPM = 72;

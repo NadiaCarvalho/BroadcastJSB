@@ -10,7 +10,7 @@ import VUMeter from './components/VUMeter.vue';
 import StrategyChooser from './components/StrategyChooser.vue'
 
 // Logic
-import { Broadcaster } from './logic/Broadcaster';
+import { Broadcaster } from './logic/broadcaster';
 import {
   startRadioTransport,
   startAudioContext,
@@ -547,4 +547,4 @@ body {
   justify-content: space-around;
   align-items: center;
 }
-</style>
+</style>./logic/broadcaster

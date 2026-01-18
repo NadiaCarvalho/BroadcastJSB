@@ -9,7 +9,7 @@
 </template>
 
 <script setup>
-import { Broadcaster } from '../logic/Broadcaster';
+import { Broadcaster } from '../logic/broadcaster';
 
 const props = defineProps({
     disabled: Boolean
@@ -104,4 +104,4 @@ const updateStrategy = (mode) => {
     cursor: default;
     background: #0a0a0a !important;
 }
-</style>
+</style>../logic/broadcaster
