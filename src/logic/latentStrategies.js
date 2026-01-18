@@ -49,7 +49,6 @@ export function knnAngularAlignment(A, B, k) {
 
   const result = tree.nearest(B, k + 1);
   const neighbors = result.slice(1).map(item => item[0]);
-  neighbors.push(B);
   const vectorAB = subtract(B.z, A.z); 
 
   let bestCandidate = null;

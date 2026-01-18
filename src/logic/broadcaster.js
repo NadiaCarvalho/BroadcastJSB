@@ -8,13 +8,14 @@ export const Broadcaster = reactive({
   selectedStrategy: 'angular', // options: 'knn', 'linear', 'angular'
   isBetweenStations: false,
   isReady: false,
-  
+  lastSelectionWasOriginal: false,
+
   // --- DATA ---
   chordDict: [],
   phrases: [],
   history: [],
   MAX_HISTORY: 15,
-  
+
   // --- SEQUENCER ---
   currentPhrase: null,
   stepIndex: -1,
@@ -33,7 +34,7 @@ export const Broadcaster = reactive({
     // Map chords to include x/y for potential UI visualization
     this.chordDict = chords.map(c => ({
       ...c,
-      x: c.z[0], 
+      x: c.z[0],
       y: c.z[1]
     }));
 
@@ -63,19 +64,19 @@ export const Broadcaster = reactive({
       // Filter out recently played phrases to keep the installation fresh
       const pool = this.phrases.filter(p => !this.history.includes(p.id));
       const selection = pool.length > 0 ? pool : this.phrases;
-      
+
       this.currentPhrase = selection[Math.floor(Math.random() * selection.length)];
-      
+
       // Update history tracking
       this.history.push(this.currentPhrase.id);
       if (this.history.length > this.MAX_HISTORY) this.history.shift();
 
       this.stepIndex = -1;
       this.isBetweenStations = false;
-      
+
       // Update audio engine: switch noise from 'scan' mode to 'drift' mode
       handleInterstationNoise(this.tunerValue, false);
-      
+
       console.log(`Station Locked: ${this.currentPhrase.id}: ${this.currentPhrase.name} | Strategy: ${this.selectedStrategy}`);
     }, 2000);
   },
@@ -86,7 +87,7 @@ export const Broadcaster = reactive({
    */
   nextStep() {
     if (!this.isReady || this.isBetweenStations || !this.currentPhrase) return null;
-    
+
     this.stepIndex++;
 
     // If we've reached the end of the Bach chorale, find a new one
@@ -96,10 +97,10 @@ export const Broadcaster = reactive({
     }
 
     this.currentStepData = this.currentPhrase.sequence[this.stepIndex];
-    
+
     // Calculate the substitution immediately based on current tunerValue
     this.generateDriftChord();
-    
+
     return this.currentStepData;
   },
 
@@ -110,7 +111,7 @@ export const Broadcaster = reactive({
   updateTuning(val) {
     this.tunerValue = val;
     handleInterstationNoise(val, this.isBetweenStations);
-    
+
     // Force a recalculation if the user turns the knob while a note is sustaining
     if (this.isReady && !this.isBetweenStations && this.currentStepData) {
       this.generateDriftChord();
@@ -151,6 +152,7 @@ export const Broadcaster = reactive({
     const k = Math.max(1, Math.floor(easedTuner * 100 * jitter));
 
     let finalChordId = B.id;
+    this.lastSelectionWasOriginal = false; // Reset every step
 
     try {
       if (this.selectedStrategy === 'knn') {
@@ -171,6 +173,13 @@ export const Broadcaster = reactive({
         // Follow the vector from A to B but drift towards neighbors
         const result = LatentMath.knnAngularAlignment(A, B, k);
         finalChordId = result.id;
+      }
+
+      // Check if we hit the "perfect signal"
+      if (finalChordId === B.id) {
+        this.lastSelectionWasOriginal = true;
+        // Reset after a short delay so the UI can "pulse" again next time
+        setTimeout(() => { this.lastSelectionWasOriginal = false; }, 100);
       }
     } catch (e) {
       console.warn("Broadcaster: Substitution error, falling back to original.", e);
