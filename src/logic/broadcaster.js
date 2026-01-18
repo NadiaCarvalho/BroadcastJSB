@@ -134,20 +134,28 @@ export const Broadcaster = reactive({
 
     if (!B) return;
 
-    // 1. Direct Signal: If tuned perfectly (tuner < 0.05), play the exact Bach chord
-    if (this.tunerValue < 0.05) {
+    // 1. Direct Signal: If tuned perfectly (tuner < 0.1), play the exact Bach chord
+    if (this.tunerValue < 0.1) {
       setNextLatentChord(B);
       return;
     }
 
     // 2. Drifted Signal: Calculate substitution using the current strategy
-    // Map tuner (0 to 1) to k neighbors (1 to 100)
-    const k = Math.max(1, Math.floor(this.tunerValue * 100));
+    // We use Math.pow(val, 3) to create a steep curve.
+    // 0.1 tuner -> ~1 neighbor (Very stable)
+    // 0.5 tuner -> ~12 neighbors (Slightly adventurous)
+    // 0.9 tuner -> ~72 neighbors (Very abstract)
+    // 1.0 tuner -> 100 neighbors (Total chaos)
+    const easedTuner = Math.pow(this.tunerValue, 3);
+    const jitter = 1 + (Math.random() * this.tunerValue * 0.5);
+    const k = Math.max(1, Math.floor(easedTuner * 100 * jitter));
+
     let finalChordId = B.id;
 
     try {
       if (this.selectedStrategy === 'knn') {
         const neighbors = LatentMath.knnSubstitution(B, k);
+        neighbors.push(B);
         // Randomly pick from k-neighbors to create a "shimmering" effect
         if (Array.isArray(neighbors) && neighbors.length > 0) {
           const chosen = neighbors[Math.floor(Math.random() * neighbors.length)];
