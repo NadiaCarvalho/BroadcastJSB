@@ -22,8 +22,8 @@ const masterGain = new Tone.Gain(1).connect(compressor);
 // --- 2. SYNTH SETUP ---
 const synth = new Tone.PolySynth(Tone.Synth, {
   oscillator: {
-    type: "pulse",
-    width: 0.3
+    type: "triangle",
+    width: .5
   },
   envelope: {
     attack: 0.15,

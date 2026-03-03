@@ -166,7 +166,7 @@ export const Broadcaster = reactive({
 
       } else if (this.selectedStrategy === 'linear' && A && C) {
         // Interpolate between A and C, skipping B
-        const result = LatentMath.linearInterpolation(A, C);
+        const result = LatentMath.linearInterpolation(A, C, easedTuner);
         finalChordId = result.id;
 
       } else if (this.selectedStrategy === 'angular' && A) {
