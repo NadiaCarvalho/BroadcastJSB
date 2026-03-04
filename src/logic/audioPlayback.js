@@ -23,7 +23,7 @@ const masterGain = new Tone.Gain(1).connect(compressor);
 const synth = new Tone.PolySynth(Tone.Synth, {
   oscillator: {
     type: "triangle",
-    width: .5
+    width: .05
   },
   envelope: {
     attack: 0.15,

@@ -28,7 +28,7 @@ export function knnSubstitution(B, k) {
   return neighbors.length > 0 ? neighbors : [B];
 }
 
-export function linearInterpolation(A, C, easedTuner=0) {
+export function linearInterpolation(A, C) {
   if (!A || !C || !tree) return { id: C?.id };
 
   const interpolatedPoint = add(scale(A.z, 0.5), scale(C.z, 0.5));
