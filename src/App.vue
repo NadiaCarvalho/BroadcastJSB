@@ -112,7 +112,7 @@ watch(volumeValue, (val) => {
 
             <div class="control-unit">
               <div class="unit-label">TUNING</div>
-              <TunerDial v-model="tunerValue" :size="174" />
+              <TunerDial v-model="tunerValue" :size="174" :strategy="Broadcaster.selectedStrategy"/>
             </div>
 
             <div class="control-unit audio-group">

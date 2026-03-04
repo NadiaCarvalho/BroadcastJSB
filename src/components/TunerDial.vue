@@ -3,7 +3,8 @@ import { ref, computed } from 'vue';
 const props = defineProps({
   modelValue: { type: Number, default: 0 },
   size: { type: Number, default: 80 },
-  labels: { type: Array, default: () => ['ORIGINAL', 'DRIFT'] } // e.g., ['MIN', 'MAX']
+  labels: { type: Array, default: () => ['ORIGINAL', 'DRIFT'] }, // e.g., ['MIN', 'MAX']
+  strategy: { type: String, default: 'angular' },
 });
 const emit = defineEmits(['update:modelValue']);
 
@@ -20,10 +21,12 @@ function initDrag(e) {
 }
 
 function doDrag(e) {
-  // Sensitivity adjusted for size: larger knobs feel "heavier"
-  const sensitivity = props.size > 80 ? 250 : 150;
+  const sensitivity = props.size > 80 ? 250 : 150; // Sensitivity adjusted for size: larger knobs feel "heavier"
   const delta = (startY.value - e.clientY) / sensitivity;
-  const next = Math.min(1, Math.max(0, startVal.value + delta));
+  let next = Math.min(1, Math.max(0, startVal.value + delta));
+  if (props.strategy === 'linear') {
+    next = next > 0.5 ? 1 : 0;
+  }
   emit('update:modelValue', next);
 }
 
@@ -35,7 +38,8 @@ function endDrag() {
 
 <template>
   <div class="dial-container" :style="{ width: size + 'px' }">
-    <div class="knob" @mousedown="initDrag" :style="{
+    <div class="knob" :class="{ 'is-binary': strategy === 'linear' }"
+    @mousedown="initDrag" :style="{
     width: size + 'px',
     height: size + 'px',
     transform: `rotate(${(modelValue * 270) - 135}deg)`
@@ -94,5 +98,9 @@ function endDrag() {
   letter-spacing: 1px;
   font-weight: bold;
   pointer-events: none;
+}
+
+.knob.is-binary {
+  transition: transform 0.1s ease-out; /* Adds a smooth snap animation */
 }
 </style>
