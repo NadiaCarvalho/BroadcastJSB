@@ -3,7 +3,7 @@
         <button v-for="opt in ['knn', 'linear', 'angular']" :key="opt"
             :class="{ active: Broadcaster.selectedStrategy === opt }" @click="updateStrategy(opt)" class="toggle-btn">
             <div class="indicator-light"></div>
-            <span class="label">{{ opt === 'knn' ? 'NEAR' : opt.toUpperCase() }}</span>
+            <span class="label">{{ opt === 'knn' ? 'NEAR' : opt === 'linear' ? 'MIDPOINT' : 'VECTOR' }}</span>
         </button>
     </div>
 </template>
