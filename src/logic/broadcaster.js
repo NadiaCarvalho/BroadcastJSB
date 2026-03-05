@@ -16,6 +16,10 @@ export const Broadcaster = reactive({
   history: [],
   MAX_HISTORY: 15,
 
+  debugChorale: 'BWV 269',
+  stepHistory: [],  // ADD THIS: For individual chord/step data
+  MAX_STEP_HISTORY: 50, // Keep it performant
+
   // --- SEQUENCER ---
   currentPhrase: null,
   stepIndex: -1,
@@ -44,8 +48,50 @@ export const Broadcaster = reactive({
 
     // Set readiness and find the first chorale
     this.isReady = true;
-    this.pickRandomStation();
+    
+    if (this.debugChorale) {
+      this.pickSpecificStation(this.debugChorale);
+    } else {
+      this.pickRandomStation();
+    }
+    
     console.log("Broadcaster Ready: Data successfully loaded from Webpack bundle.");
+  },
+
+  /**
+   * Finds a specific radio station/chorale by its ID.
+   * @param {string|number} stationId - The unique ID of the phrase to load.
+   */
+  pickSpecificStation(stationId) {
+    if (!this.isReady) return;
+
+    // 1. Trigger the "Between Stations" aesthetic (static/noise)
+    this.isBetweenStations = true;
+    setNextLatentChord(null);
+    handleInterstationNoise(this.tunerValue, true);
+
+    // 2. Locate the specific station in your data
+    const target = this.phrases.find(p => p.id === stationId);
+
+    if (!target) {
+      console.error(`Station ${stationId} not found.`);
+      // Optional: stop the noise if nothing is found
+      this.isBetweenStations = false;
+      return;
+    }
+
+    // 3. Simulated "Scanning" delay for immersion
+    setTimeout(() => {
+      this.currentPhrase = target;
+
+      this.stepIndex = -1;
+      this.isBetweenStations = false;
+
+      // Switch noise back to 'drift' mode
+      handleInterstationNoise(this.tunerValue, false);
+
+      console.log(`Manual Lock: ${this.currentPhrase.id}: ${this.currentPhrase.name}`);
+    }, 2000);
   },
 
   /**
@@ -92,7 +138,12 @@ export const Broadcaster = reactive({
 
     // If we've reached the end of the Bach chorale, find a new one
     if (this.stepIndex >= this.currentPhrase.sequence.length) {
-      this.pickRandomStation();
+      if (this.debugChorale) {
+        this.logStationSummary();
+        this.pickSpecificStation(this.debugChorale);
+      } else {
+        this.pickRandomStation();
+      }
       return null;
     }
 
@@ -186,8 +237,55 @@ export const Broadcaster = reactive({
       finalChordId = B.id;
     }
 
+    const snapshot = {
+      timestamp: Date.now(),
+      phraseId: this.currentPhrase.id,
+      stepIndex: this.stepIndex,
+      originalChordId: B.id,
+      playedChordId: finalChordId,
+      strategy: this.selectedStrategy,
+      tunerValue: this.tunerValue,
+      isOriginal: finalChordId === B.id
+    };
+
+    this.stepHistory.push(snapshot);
+
+    // Keep the history from growing infinitely
+    if (this.stepHistory.length > this.MAX_STEP_HISTORY) {
+      this.stepHistory.shift();
+    }
+    // ----------------------------------
+
     // Update the audio engine with the new target chord
     const driftedChord = LatentMath.getChordById(finalChordId);
     setNextLatentChord(driftedChord || B);
-  }
+  },
+
+  logStationSummary() {
+    if (!this.currentPhrase || this.stepHistory.length === 0) return;
+
+    console.group(`%c 📻 Station Summary: ${this.currentPhrase.id} - ${this.currentPhrase.name} `, "background: #222; color: #bada55; font-weight: bold;");
+
+    // Filter history to only include steps from the chorale just played
+    const sessionData = this.stepHistory.map(s => ({
+      Step: s.stepIndex,
+      Original: s.originalChordId,
+      Played: s.playedChordId,
+      Strategy: s.strategy,
+      Dial: s.tunerValue.toFixed(2),
+      Status: s.isOriginal ? "✅ Pure" : "✨ Drifted"
+    }));
+
+    console.table(sessionData);
+
+    // Calculate a quick "Drift Score"
+    const driftCount = sessionData.filter(s => s.Status === "✨ Drifted").length;
+    const driftPercentage = ((driftCount / sessionData.length) * 100).toFixed(1);
+
+    console.log(`Final Report: ${driftPercentage}% of this chorale was reimagined by the Latent Engine.`);
+    console.groupEnd();
+
+    // Clear the history for the next station
+    this.stepHistory = [];
+  },
 });
