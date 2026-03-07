@@ -22,6 +22,7 @@ import {
 // Data
 import latentJson from './data/chords_bach_all.json';
 import phrasesJson from './data/chorales.json';
+import debugPhrasesJson from './data/phrases.json';
 
 // --- STATE ---
 const isPoweredOn = ref(false);
@@ -30,7 +31,7 @@ const volumeValue = ref(0.5);
 
 onMounted(() => {
   if (latentJson && phrasesJson) {
-    Broadcaster.init(latentJson.chords, phrasesJson);
+    Broadcaster.init(latentJson.chords, phrasesJson, debugPhrasesJson);
     updateNoiseFloor(tunerValue.value);
   }
 });
@@ -44,6 +45,10 @@ watch(isPoweredOn, async (on) => {
   } else {
     stopRadio();
     Broadcaster.isBetweenStations = false;
+    if (Broadcaster.debugChorale) {
+      Broadcaster.stepIndex = -1;
+      Broadcaster.stepHistory = [];
+    }
   }
 });
 

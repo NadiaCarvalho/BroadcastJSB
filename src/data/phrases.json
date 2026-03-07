@@ -28,5 +28,160 @@
         ]
       }
     ]
+  },
+  {
+    "id": "BWV 269 - phrase 1",
+    "name": "Aus meines Herzens Grunde",
+    "sequence": [
+      {
+        "id": "567",
+        "duration": 1.0,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "4656",
+        "duration": 1.0,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "3712",
+        "duration": 0.5,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "3651",
+        "duration": 0.5,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "4299",
+        "duration": 1.0,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "4853",
+        "duration": 1.0,
+        "all_indices": [
+          0,
+          1,
+          2
+        ]
+      },
+      {
+        "id": "2645",
+        "duration": 0.5,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "2640",
+        "duration": 0.5,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "3437",
+        "duration": 1.0,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "2115",
+        "duration": 0.5,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "2083",
+        "duration": 0.5,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "1664",
+        "duration": 0.5,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "1076",
+        "duration": 0.5,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "644",
+        "duration": 1.0,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "3031",
+        "duration": 2.0,
+        "all_indices": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    ]
   }
 ]

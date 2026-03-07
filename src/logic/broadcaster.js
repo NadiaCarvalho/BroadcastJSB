@@ -16,9 +16,11 @@ export const Broadcaster = reactive({
   history: [],
   MAX_HISTORY: 15,
 
-  debugChorale: 'BWV 269',
+  // --- DEBUG DATA ---
+  debugPhrases: [],
+  debugChorale: 'BWV 269 - phrase 1',
   stepHistory: [],  // ADD THIS: For individual chord/step data
-  MAX_STEP_HISTORY: 50, // Keep it performant
+  MAX_STEP_HISTORY: 0, // Keep it performant
 
   // --- SEQUENCER ---
   currentPhrase: null,
@@ -29,7 +31,7 @@ export const Broadcaster = reactive({
    * Initializes the Broadcaster with the local JSON data.
    * Since imports are synchronous in Webpack, this runs immediately.
    */
-  init(chords, phrases) {
+  init(chords, phrases, debugPhrases = null) {
     if (!chords || chords.length === 0 || !phrases || phrases.length === 0) {
       console.warn("Broadcaster: Initialization data missing or empty.");
       return;
@@ -45,6 +47,10 @@ export const Broadcaster = reactive({
     // Inject the dictionary into the math utility for calculations
     LatentMath.setChordDict(this.chordDict);
     this.phrases = phrases;
+
+    if (debugPhrases) {
+      this.debugPhrases = debugPhrases;
+    }
 
     // Set readiness and find the first chorale
     this.isReady = true;
@@ -71,7 +77,8 @@ export const Broadcaster = reactive({
     handleInterstationNoise(this.tunerValue, true);
 
     // 2. Locate the specific station in your data
-    const target = this.phrases.find(p => p.id === stationId);
+    let target = this.debugPhrases.find(p => p.id === stationId);
+    if (!target) target = this.phrases.find(p => p.id === stationId);
 
     if (!target) {
       console.error(`Station ${stationId} not found.`);
@@ -79,6 +86,8 @@ export const Broadcaster = reactive({
       this.isBetweenStations = false;
       return;
     }
+
+    this.MAX_STEP_HISTORY = target.sequence.length;
 
     // 3. Simulated "Scanning" delay for immersion
     setTimeout(() => {
@@ -139,6 +148,7 @@ export const Broadcaster = reactive({
     // If we've reached the end of the Bach chorale, find a new one
     if (this.stepIndex >= this.currentPhrase.sequence.length) {
       if (this.debugChorale) {
+        this.downloadSessionJSON();
         this.logStationSummary();
         this.pickSpecificStation(this.debugChorale);
       } else {
@@ -188,6 +198,7 @@ export const Broadcaster = reactive({
 
     // 1. Direct Signal: If tuned perfectly (tuner < 0.1), play the exact Bach chord
     if (this.tunerValue < 0.1) {
+      this.saveSnapshotToHistory(B, B.id);
       setNextLatentChord(B);
       return;
     }
@@ -232,10 +243,21 @@ export const Broadcaster = reactive({
         // Reset after a short delay so the UI can "pulse" again next time
         setTimeout(() => { this.lastSelectionWasOriginal = false; }, 100);
       }
+
+      this.saveSnapshotToHistory(B, finalChordId);
     } catch (e) {
       console.warn("Broadcaster: Substitution error, falling back to original.", e);
       finalChordId = B.id;
     }
+
+    // Update the audio engine with the new target chord
+    const driftedChord = LatentMath.getChordById(finalChordId);
+    setNextLatentChord(driftedChord || B);
+  },
+
+  saveSnapshotToHistory(B, finalChordId) {
+
+    if (!this.debugChorale) return;
 
     const snapshot = {
       timestamp: Date.now(),
@@ -247,18 +269,12 @@ export const Broadcaster = reactive({
       tunerValue: this.tunerValue,
       isOriginal: finalChordId === B.id
     };
-
     this.stepHistory.push(snapshot);
 
     // Keep the history from growing infinitely
     if (this.stepHistory.length > this.MAX_STEP_HISTORY) {
       this.stepHistory.shift();
     }
-    // ----------------------------------
-
-    // Update the audio engine with the new target chord
-    const driftedChord = LatentMath.getChordById(finalChordId);
-    setNextLatentChord(driftedChord || B);
   },
 
   logStationSummary() {
@@ -283,9 +299,38 @@ export const Broadcaster = reactive({
     const driftPercentage = ((driftCount / sessionData.length) * 100).toFixed(1);
 
     console.log(`Final Report: ${driftPercentage}% of this chorale was reimagined by the Latent Engine.`);
+
+    console.log(this.stepHistory.map(s => (s.playedChordId)));
+
     console.groupEnd();
 
     // Clear the history for the next station
     this.stepHistory = [];
+  },
+
+  downloadSessionJSON() {
+    if (this.stepHistory.length === 0) return;
+
+    const dataStr = JSON.stringify({
+      chorale: this.currentPhrase.name,
+      id: this.currentPhrase.id,
+      timestamp: new Date().toISOString(),
+      performance: this.stepHistory
+    }, null, 2);
+
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Bach_Latent_${this.currentPhrase.id}_${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    console.log("💾 Performance data saved to disk.");
   },
 });
